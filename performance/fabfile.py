@@ -21,7 +21,8 @@ def test_performance(start_and_stop=True):
         start_hdfs()
 
     with cd(HADOOP_HOME):
-        while len(NODES) > 1:
+        while len(NODES) > 0:
+            start_hdfs()
             print 'Testing with ' + unicode(len(NODES)) + ' nodes:'
             make_test_dir()
 
@@ -34,9 +35,8 @@ def test_performance(start_and_stop=True):
 
             remove_test_dir()
 
-            remove_data_node()
             stop_hdfs()
-            start_hdfs()
+            remove_data_node()
 
     if start_and_stop:
         stop_hdfs()
@@ -110,8 +110,8 @@ def time_listing_directory():
 
 def time_copy_directory():
     add_dir('files')
-    total = 0
     for key, value in FILES.iteritems():
+        total = 0
         for i in range(0, RUN_TIMES, 1):
             file_name = key + '.txt'
             start = time.clock()
