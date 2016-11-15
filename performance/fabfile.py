@@ -9,7 +9,7 @@ HADOOP_HOME = '/home/sgoeddel/hadoop'
 TEST_DIR = '/tmp'
 FILES_DIR = 'testFiles/'
 HADOOP_COMMAND = 'bin/hadoop fs'
-RUN_TIMES = 2
+RUN_TIMES = 1
 
 env.hosts = [HADOOP_HOST]
 
@@ -22,7 +22,8 @@ def test_performance(start_and_stop=False):
         time_adding_empty_dir()
         time_adding_empty_file()
         time_putting_all_files()
-        # time_reading_all_files()
+        time_reading_all_files()
+        time_copy_directory()
         time_listing_directory()
         remove_test_dir()
 
@@ -55,17 +56,21 @@ def time_adding_empty_file():
 
 
 def time_putting_all_files():
-    for key, value in FILES.iteritems():
-        total = 0
-        for i in range(0, RUN_TIMES, 1):
-            start = time.clock()
-            put_file(FILES_DIR + key + '.txt')
-            end = time.clock()
-            total += end - start
-            if i < RUN_TIMES - 1:
-                remove_file(key + '.txt')
+    with hide('everything'):
+        for key, value in FILES.iteritems():
+            total = 0
+            for i in range(0, RUN_TIMES, 1):
+                start = time.clock()
+                put_file(FILES_DIR + key + '.txt')
+                end = time.clock()
+                total += end - start
+                if i < RUN_TIMES - 1:
+                    remove_file(key + '.txt')
+                else:
+                    size_info = run(HADOOP_COMMAND + ' -du ' + TEST_DIR + '/' + key + '.txt')
+                    print 'Added ' + size_info
 
-        print 'Adding ' + key + ': ' + unicode(total / RUN_TIMES) + ' seconds; averaged over ' + unicode(RUN_TIMES) + ' times.'
+            print 'Adding ' + key + '.txt: ' + unicode(total / RUN_TIMES) + ' seconds; averaged over ' + unicode(RUN_TIMES) + ' times.'
 
 
 def time_reading_all_files():
@@ -77,18 +82,43 @@ def time_reading_all_files():
             end = time.clock()
             total += end - start
 
-        print 'Reading ' + key + ': ' + unicode(total / RUN_TIMES) + ' seconds; averaged over ' + unicode(RUN_TIMES) + ' times.'
+        print 'Reading ' + key + '.txt: ' + unicode(total / RUN_TIMES) + ' seconds; averaged over ' + unicode(RUN_TIMES) + ' times.'
 
 
 def time_listing_directory():
+    with hide('everything'):
+        total = 0
+        for i in range(0, RUN_TIMES, 1):
+            start = time.clock()
+            run(HADOOP_COMMAND + ' -lsr /tmp')
+            end = time.clock()
+            total += end - start
+
+        print 'Listing main dir: ' + unicode(total / RUN_TIMES) + ' seconds; averaged over ' + unicode(RUN_TIMES) + ' times.'
+
+
+def time_copy_directory():
+    add_dir('files')
+    total = 0
+    for key, value in FILES.iteritems():
+        for i in range(0, RUN_TIMES, 1):
+            file_name = key + '.txt'
+            start = time.clock()
+            copy(file_name, 'files/' + file_name)
+            end = time.clock()
+            total += end - start
+
+        print 'Copying ' + key + '.txt: ' + unicode(total / RUN_TIMES) + ' seconds; averaged over ' + unicode(RUN_TIMES) + ' times.'
+
+
     total = 0
     for i in range(0, RUN_TIMES, 1):
         start = time.clock()
-        run(HADOOP_COMMAND + ' -ls /tmp')
+        copy('files', 'copyOfFiles')
         end = time.clock()
         total += end - start
 
-    print 'listing /tmp dir: ' + unicode(total / RUN_TIMES) + ' seconds; averaged over ' + unicode(RUN_TIMES) + ' times.'
+    print 'Copying files dir: ' + unicode(total / RUN_TIMES) + ' seconds; averaged over ' + unicode(RUN_TIMES) + ' times.'
 
 
 def start_hdfs():
@@ -111,15 +141,16 @@ def remove_test_dir():
 
 def dir(dir_name=None, add=True):
     with cd(HADOOP_HOME):
-        suffix = ''
-        if dir_name is not None:
-            suffix = '/' + dir_name
+        with hide('everything'):
+            suffix = ''
+            if dir_name is not None:
+                suffix = '/' + dir_name
 
-        command = '-rm -r'
-        if add:
-            command = '-mkdir'
+            command = '-rm -r'
+            if add:
+                command = '-mkdir'
 
-        run(HADOOP_COMMAND + ' ' + command + ' ' + TEST_DIR + suffix)
+            run(HADOOP_COMMAND + ' ' + command + ' ' + TEST_DIR + suffix)
 
 
 def add_dir(dir_name=None):
@@ -132,13 +163,14 @@ def remove_dir(dir_name=None):
 
 def file(file_name, add=True):
     with cd(HADOOP_HOME):
-        suffix = '/' + file_name
+        with hide('everything'):
+            suffix = '/' + file_name
 
-        command = '-rm'
-        if add:
-            command = '-touchz'
+            command = '-rm'
+            if add:
+                command = '-touchz'
 
-        run(HADOOP_COMMAND + ' ' + command + ' ' + TEST_DIR + suffix)
+            run(HADOOP_COMMAND + ' ' + command + ' ' + TEST_DIR + suffix)
 
 
 def add_file(file_name):
@@ -149,18 +181,27 @@ def remove_file(file_name):
     dir(file_name, False)
 
 
+def copy(source, dest):
+    with cd(HADOOP_HOME):
+        with hide('everything'):
+            run(HADOOP_COMMAND + ' -cp -f ' + TEST_DIR + '/' + source + ' ' + TEST_DIR + '/' + dest)
+
+
 def put_file(file_name):
     with cd(HADOOP_HOME):
-        run(HADOOP_COMMAND + ' -copyFromLocal -f ' + file_name + ' ' + TEST_DIR + '/' + file_name.replace(FILES_DIR, ''))
+        with hide('everything'):
+            run(HADOOP_COMMAND + ' -copyFromLocal -f ' + file_name + ' ' + TEST_DIR + '/' + file_name.replace(FILES_DIR, ''))
 
 
 def read_file(file_name):
     with cd(HADOOP_HOME):
-        run(HADOOP_COMMAND + ' -cat ' + TEST_DIR + '/' + file_name)
+        with hide('everything'):
+            run(HADOOP_COMMAND + ' -cat ' + TEST_DIR + '/' + file_name)
 
 
 def copy_files_to_server():
     with cd(HADOOP_HOME):
-        for key, value in FILES.iteritems():
-            file_name = key + '.txt'
-            put('../' + file_name, FILES_DIR + file_name)
+        with hide('everything'):
+            for key, value in FILES.iteritems():
+                file_name = key + '.txt'
+                put('../' + file_name, FILES_DIR + file_name)
